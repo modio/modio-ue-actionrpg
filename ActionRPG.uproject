@@ -1,0 +1,66 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.3",
+  "Category": "",
+  "Description": "",
+  "Modules": [
+    {
+      "Name": "ActionRPG",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "ActionRPGEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "ActionRPGLoadingScreen",
+      "Type": "ClientOnly",
+      "LoadingPhase": "PreLoadingScreen"
+    },
+    {
+      "Name": "ActionRPGModio",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "AdditionalDependencies": [
+        "Engine"
+      ]
+    },
+    {
+      "Name": "OSS_Provider",
+      "Type": "Runtime",
+      "LoadingPhase": "EarliestPossible"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "FunctionalTestingEditor",
+      "Enabled": true
+    },
+    {
+      "Name": "OnlineSubsystemSteam",
+      "Enabled": true
+    },
+    {
+      "Name": "OnlineSubsystemGoogle",
+      "Enabled": true
+    },
+    {
+      "Name": "GameplayAbilities",
+      "Enabled": true
+    },
+    {
+      "Name": "ModularGameplay",
+      "Enabled": true
+    },
+    {
+      "Name": "CommonUI",
+      "Enabled": true
+    },
+    {
+      "Name": "SteamShared",
+      "Enabled": true
+    }
+  ]
+}
