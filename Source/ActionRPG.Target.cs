@@ -13,6 +13,8 @@ public class ActionRPGTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
 		ExtraModuleNames.AddRange( new string[] { "ActionRPG", "ActionRPGModio", "OSS_Provider" } );
 
-		//ProjectDefinitions.Add("MODIO_DEVELOPMENT_MODE");
-	}
+		// For debug sym generation
+		MacPlatform.bUseDSYMFiles = true;
+        IOSPlatform.bGeneratedSYM = true;
+    }
 }

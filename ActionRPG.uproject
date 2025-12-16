@@ -1,6 +1,6 @@
 {
   "FileVersion": 3,
-  "EngineAssociation": "5.3",
+  "EngineAssociation": "5.4",
   "Category": "",
   "Description": "",
   "Modules": [
@@ -61,6 +61,11 @@
     {
       "Name": "SteamShared",
       "Enabled": true
+    },
+    {
+      "Name": "Tolgee",
+      "Enabled": true,
+      "MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/2757e202f8f3408bbf66f65d26223398"
     }
   ]
 }

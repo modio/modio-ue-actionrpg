@@ -33,10 +33,10 @@ public class ActionRPG : ModuleRules
 				"UMG"
 			}
 		);
-		
+
 		PrivateDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem", "OnlineSubsystemUtils" });
 
-        if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Linux) || (Target.Platform == UnrealTargetPlatform.Mac))
+		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Linux) || (Target.Platform == UnrealTargetPlatform.Mac))
 		{
 			PublicDefinitions.Add("WITH_STEAM");
 
@@ -54,9 +54,18 @@ public class ActionRPG : ModuleRules
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "Steamworks");
 		}
 
-        if (Target.Platform == UnrealTargetPlatform.Android)
-        {
-            PrivateDependencyModuleNames.Add("Launch");
-        }
-    }
+		if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			PrivateDependencyModuleNames.Add("Launch");
+		}
+
+		if ((Target.Platform == UnrealTargetPlatform.Win64)
+			|| (Target.Platform == UnrealTargetPlatform.Linux)
+			|| (Target.Platform == UnrealTargetPlatform.Mac)
+			|| (Target.Platform == UnrealTargetPlatform.Android)
+			|| (Target.Platform == UnrealTargetPlatform.IOS))
+		{
+			PublicDependencyModuleNames.Add("Sentry");
+		}
+	}
 }

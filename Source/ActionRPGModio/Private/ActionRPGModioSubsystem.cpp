@@ -23,16 +23,18 @@
 
 #ifdef WITH_STEAM
 THIRD_PARTY_INCLUDES_START
-	#include "steam/steam_api.h"
+#include "steam/steam_api.h"
 THIRD_PARTY_INCLUDES_END
 #endif
 
 UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 {
+	UModioSettings& ModioSettings = *GetMutableDefault<UModioSettings>();
+
 	FString APIKey;
 	if (FParse::Value(FCommandLine::Get(), TEXT("apikey="), APIKey))
 	{
-		OverrideApiKey = APIKey;
+		ModioSettings.OverrideApiKey = APIKey;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using APIKey: %s"), *APIKey);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -40,7 +42,7 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	int32 GameID;
 	if (FParse::Value(FCommandLine::Get(), TEXT("gameid="), GameID))
 	{
-		OverrideGameId = GameID;
+		ModioSettings.OverrideGameId = GameID;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using GameID: %i"), GameID);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -48,7 +50,7 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	FString MetricsSecretKey;
 	if (FParse::Value(FCommandLine::Get(), TEXT("metricssecretkey="), MetricsSecretKey))
 	{
-		OverrideMetricsSecretKey = MetricsSecretKey;
+		ModioSettings.OverrideMetricsSecretKey = MetricsSecretKey;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using MetricsSecretKey: %s"), *MetricsSecretKey);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -59,7 +61,7 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	{
 		if (UModioHelpers::StringToModioGameEnvironment(GameEnvironmentStr, GameEnvironment))
 		{
-			OverrideGameEnvironment = GameEnvironment;
+			ModioSettings.OverrideGameEnvironment = GameEnvironment;
 			UE_LOG(LogActionRPGModio, Display, TEXT("Using GameEnvironment: %s"), *GameEnvironmentStr);
 			HasOverriddenLaunchOptions = true;
 		}
@@ -68,9 +70,9 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	EModioPortal Portal;
 	FString PortalStr;
 	if (FParse::Value(FCommandLine::Get(), TEXT("portal="), PortalStr) &&
-		UModioHelpers::StringToModioPortal(PortalStr, Portal))
+	    UModioHelpers::StringToModioPortal(PortalStr, Portal))
 	{
-		OverridePortal = Portal;
+		ModioSettings.OverridePortal = Portal;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using Portal: %s"), *PortalStr);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -78,7 +80,7 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	FString Url;
 	if (FParse::Value(FCommandLine::Get(), TEXT("url="), Url))
 	{
-		OverrideUrl = Url;
+		ModioSettings.OverrideUrl = Url;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using URL: %s"), *Url);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -86,7 +88,7 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	FString SessionID;
 	if (FParse::Value(FCommandLine::Get(), TEXT("sessionid="), SessionID))
 	{
-		OverrideSessionID = SessionID;
+		ModioSettings.OverrideSessionID = SessionID;
 		UE_LOG(LogActionRPGModio, Display, TEXT("Using SessionID: %s"), *SessionID);
 		HasOverriddenLaunchOptions = true;
 	}
@@ -94,44 +96,41 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 	FString EnableDisableState;
 	if (FParse::Value(FCommandLine::Get(), TEXT("enabledisable="), EnableDisableState))
 	{
-		bOverrideModEnableDisableFeature = EnableDisableState.ToBool();
+		ModioSettings.bEnableModEnableDisableFeature = EnableDisableState.ToBool();
 		UE_LOG(LogActionRPGModio, Display, TEXT("Enable/Disable Feature enabled?: %hs"),
-			   bOverrideModEnableDisableFeature ? "true" : "false");
-		GetMutableDefault<UModioSettings>()->bEnableModEnableDisableFeature = bOverrideModEnableDisableFeature;
+		       ModioSettings.bEnableModEnableDisableFeature ? "true" : "false");
 	}
 
 	FString MonetizationState;
 	if (FParse::Value(FCommandLine::Get(), TEXT("monetization="), MonetizationState))
 	{
-		bOverrideMonetizationFeature = MonetizationState.ToBool();
+		ModioSettings.bEnableMonetizationFeature = MonetizationState.ToBool();
 		UE_LOG(LogActionRPGModio, Display, TEXT("Monetization Feature enabled?: %hs"),
-			   bOverrideMonetizationFeature ? "true" : "false");
-		GetMutableDefault<UModioSettings>()->bEnableMonetizationFeature = bOverrideMonetizationFeature;
+		       ModioSettings.bEnableMonetizationFeature ? "true" : "false");
 	}
 
 	FString DownvoteState;
 	if (FParse::Value(FCommandLine::Get(), TEXT("downvote="), DownvoteState))
 	{
-		bOverrideDownvoteFeature = DownvoteState.ToBool();
+		ModioSettings.bEnableModDownvoteFeature = DownvoteState.ToBool();
 		UE_LOG(LogActionRPGModio, Display, TEXT("Downvote Feature enabled?: %hs"),
-			   bOverrideDownvoteFeature ? "true" : "false");
-		GetMutableDefault<UModioSettings>()->bEnableModDownvoteFeature = bOverrideDownvoteFeature;
+		       ModioSettings.bEnableModDownvoteFeature ? "true" : "false");
 		HasOverriddenLaunchOptions = true;
 	}
 
 	FString ModStorageQuotaMB;
 	if (FParse::Value(FCommandLine::Get(), TEXT("modstoragequota="), ModStorageQuotaMB))
 	{
-		OverrideModStorageQuotaMB = FCString::Atoi(*ModStorageQuotaMB);
-		UE_LOG(LogActionRPGModio, Display, TEXT("Mod Storage Quota: %i"), OverrideModStorageQuotaMB.GetValue());
+		ModioSettings.OverrideModStorageQuotaMB = FCString::Atoi(*ModStorageQuotaMB);
+		UE_LOG(LogActionRPGModio, Display, TEXT("Mod Storage Quota: %i"), *ModioSettings.OverrideModStorageQuotaMB);
 		HasOverriddenLaunchOptions = true;
 	}
 
 	FString CacheStorageQuotaMB;
 	if (FParse::Value(FCommandLine::Get(), TEXT("cachestoragequota="), CacheStorageQuotaMB))
 	{
-		OverrideCacheStorageQuotaMB = FCString::Atoi(*CacheStorageQuotaMB);
-		UE_LOG(LogActionRPGModio, Display, TEXT("Cache Storage Quota: %i"), OverrideCacheStorageQuotaMB.GetValue());
+		ModioSettings.OverrideCacheStorageQuotaMB = FCString::Atoi(*CacheStorageQuotaMB);
+		UE_LOG(LogActionRPGModio, Display, TEXT("Cache Storage Quota: %i"), *ModioSettings.OverrideCacheStorageQuotaMB);
 		HasOverriddenLaunchOptions = true;
 	}
 }
@@ -161,7 +160,7 @@ void UActionRPGModioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 				if (ec)
 				{
 					UE_LOG(LogActionRPGModio, Error, TEXT("Failed to initialize Mod.io SDK with error: %s"),
-						   *ec.GetErrorMessage());
+					       *ec.GetErrorMessage());
 				}
 				else
 				{
@@ -193,16 +192,38 @@ void UActionRPGModioSubsystem::OnUGCProviderInitialized(bool bSuccess)
 
 void UActionRPGModioSubsystem::AddItemToSteamInventory(int32& Result, int32 ItemId, int32 Quantity)
 {
-#ifdef WITH_STEAM
+	#ifdef WITH_STEAM
 	SteamInventoryResult_t InnerResult = Result;
 	SteamItemDef_t InnerItem = ItemId;
-	uint32 InnerCount = uint32(Quantity);
+	uint32 InnerCount = static_cast<uint32>(Quantity);
 	UE_LOG(LogActionRPGModio, Warning, TEXT("Adding item to inventory"));
 	SteamInventory()->GenerateItems(&InnerResult, &InnerItem, &InnerCount, 1);
-#else
+	#else
 	UE_LOG(LogActionRPGModio, Warning,
 		   TEXT("AddItemToSteamInventory is only supported on Steam-compatible platforms."));
-#endif
+	#endif
+}
+
+bool UActionRPGModioSubsystem::GetOverrideGameEnvironment(EModioEnvironment& OutEnvironment) const
+{
+	const UModioSettings& ModioSettings = *GetDefault<UModioSettings>();
+	if (ModioSettings.OverrideGameEnvironment.IsSet())
+	{
+		OutEnvironment = ModioSettings.OverrideGameEnvironment.GetValue();
+		return true;
+	}
+	return false;
+}
+
+bool UActionRPGModioSubsystem::GetOverridePortal(EModioPortal& OutPortal) const
+{
+	const UModioSettings& ModioSettings = *GetDefault<UModioSettings>();
+	if (ModioSettings.OverridePortal.IsSet())
+	{
+		OutPortal = ModioSettings.OverridePortal.GetValue();
+		return true;
+	}
+	return false;
 }
 
 bool UActionRPGModioSubsystem::OnModPreUninstallCallback(FModioModID ModioModID)
@@ -222,46 +243,48 @@ FModioInitializeOptions UActionRPGModioSubsystem::OverrideInitializationOptions(
 		return Options;
 	}
 
-	FModioInitializeOptions DuplicateOptions {Options};
+	const UModioSettings& ModioSettings = *GetDefault<UModioSettings>();
+	FModioInitializeOptions DuplicateOptions{Options};
 
-	if (OverrideGameId > 0)
+	if (ModioSettings.OverrideGameId.IsSet())
 	{
-		DuplicateOptions.GameId = FModioGameID(OverrideGameId);
+		DuplicateOptions.GameId = FModioGameID(*ModioSettings.OverrideGameId);
 	}
-	if (!OverrideApiKey.IsEmpty())
+	if (ModioSettings.OverrideApiKey.IsSet())
 	{
-		DuplicateOptions.ApiKey = FModioApiKey(OverrideApiKey);
+		DuplicateOptions.ApiKey = FModioApiKey(*ModioSettings.OverrideApiKey);
 	}
-	if (!OverrideMetricsSecretKey.IsEmpty())
+	if (ModioSettings.OverrideMetricsSecretKey.IsSet())
 	{
-		DuplicateOptions.ExtendedInitializationParameters.Add("MetricsSecretKey", OverrideMetricsSecretKey);
+		DuplicateOptions.ExtendedInitializationParameters.Add("MetricsSecretKey",
+		                                                      *ModioSettings.OverrideMetricsSecretKey);
 	}
-	EModioEnvironment GameEnvironment;
-	if (GetOverrideGameEnvironment(GameEnvironment))
+	if (ModioSettings.OverrideGameEnvironment.IsSet())
 	{
-		DuplicateOptions.GameEnvironment = GameEnvironment;
+		DuplicateOptions.GameEnvironment = *ModioSettings.OverrideGameEnvironment;
 	}
-	if (!OverrideUrl.IsEmpty())
+	if (ModioSettings.OverrideUrl.IsSet())
 	{
 		// "EnvironmentOverrideUrl" was taken from Modio::Detail::HttpService::ApplyGlobalConfigOverrides
-		DuplicateOptions.ExtendedInitializationParameters.Add("EnvironmentOverrideUrl", OverrideUrl);
+		DuplicateOptions.ExtendedInitializationParameters.Add("EnvironmentOverrideUrl", *ModioSettings.OverrideUrl);
 	}
-	if (!OverrideSessionID.IsEmpty())
+	if (ModioSettings.OverrideSessionID.IsSet())
 	{
-		DuplicateOptions.LocalSessionIdentifier = OverrideSessionID;
+		DuplicateOptions.LocalSessionIdentifier = *ModioSettings.OverrideSessionID;
 	}
 
-	int32 ModStorageQuotaMB;
-	if (GetOverrideModStorageQuotaMB(ModStorageQuotaMB))
+	if (ModioSettings.OverrideModStorageQuotaMB.IsSet())
 	{
-		DuplicateOptions.ExtendedInitializationParameters.Add("ModStorageQuotaMB", FString::FromInt(ModStorageQuotaMB));
+		DuplicateOptions.ExtendedInitializationParameters.Add("ModStorageQuotaMB",
+		                                                      FString::FromInt(
+			                                                      *ModioSettings.OverrideModStorageQuotaMB));
 	}
 
-	int32 CacheStorageQuotaMB;
-	if (GetOverrideCacheStorageQuotaMB(CacheStorageQuotaMB))
+	if (ModioSettings.OverrideCacheStorageQuotaMB.IsSet())
 	{
 		DuplicateOptions.ExtendedInitializationParameters.Add("CacheStorageQuotaMB",
-															  FString::FromInt(CacheStorageQuotaMB));
+		                                                      FString::FromInt(
+			                                                      *ModioSettings.OverrideCacheStorageQuotaMB));
 	}
 
 	return DuplicateOptions;
