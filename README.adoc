@@ -46,6 +46,25 @@ For access to Windows (GDK), XBox, Playstation 4, Playstation 5 or Switch, pleas
 == Documentation
 Comprehensive documentation for this plugin https://docs.mod.io/unreal/modio-action-rpg[can be found here].
 
+== Project Telemetry
+This project includes *Sentry* to help us automatically capture crashes, errors, and performance issues. This telemetry allows us to improve stability, diagnose problems more quickly, and better support developers using the project.
+
+If you prefer not to send telemetry, you can completely remove Sentry from your build by deleting the dependency block in https://github.com/modio/modio-ue-actionrpg/blob/main/Source/ActionRPG/ActionRPG.Build.cs#L62[Source/ActionRPG/ActionRPG.Build.cs]. 
+
+[source,cs]
+----
+		if ((Target.Platform == UnrealTargetPlatform.Win64)
+			|| (Target.Platform == UnrealTargetPlatform.Linux)
+			|| (Target.Platform == UnrealTargetPlatform.Mac)
+			|| (Target.Platform == UnrealTargetPlatform.Android)
+			|| (Target.Platform == UnrealTargetPlatform.IOS))
+		{
+			PublicDependencyModuleNames.Add("Sentry");
+		}
+----
+
+After this change, Sentry will no longer be linked or initialized for any platform, and no telemetry will be sent.
+
 == Installation
 
 === Prerequisites

@@ -5,7 +5,10 @@
 #include "ActionRPG.h"
 #include "RPGTypes.h"
 #include "Abilities/RPGAbilityTypes.h"
+
 #include "RPGBlueprintLibrary.generated.h"
+
+
 
 /**
  * Game-specific blueprint library
@@ -63,4 +66,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Project")
 	static bool IsOculusDevice();
+
+	UFUNCTION(BlueprintPure, Category = "Internal") 
+	static bool GetBuildID (FString& OutBuildID);
 };

@@ -9,6 +9,9 @@
 #include <android_native_app_glue.h>
 #endif
 
+#define STRINGIFY_MACRO(x) FString(#x) 
+
+
 URPGBlueprintLibrary::URPGBlueprintLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -127,4 +130,15 @@ bool URPGBlueprintLibrary::IsOculusDevice()
 #endif
 
     return false; // Non-Android platforms are not Oculus devices
+}
+
+bool URPGBlueprintLibrary::GetBuildID(FString& OutBuildID)
+{
+#ifdef BUILD_ID
+	OutBuildID = STRINGIFY_MACRO(BUILD_ID);
+	return true;
+#else
+	OutBuildID = FString("Unknown");
+	return false;
+#endif
 }

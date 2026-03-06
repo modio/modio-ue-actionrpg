@@ -1,7 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-using UnrealBuildTool;
+using System;
 using System.Collections.Generic;
+using UnrealBuildTool;
 
 public class ActionRPGTarget : TargetRules
 {
@@ -16,5 +17,11 @@ public class ActionRPGTarget : TargetRules
 		// For debug sym generation
 		MacPlatform.bUseDSYMFiles = true;
         IOSPlatform.bGeneratedSYM = true;
+        string ExternalVersionHash = Environment.GetEnvironmentVariable("BUILD_ID");
+
+        if (ExternalVersionHash != null)
+        {
+			ProjectDefinitions.Add(String.Format("BUILD_ID={0}", ExternalVersionHash));
+        }
     }
 }
