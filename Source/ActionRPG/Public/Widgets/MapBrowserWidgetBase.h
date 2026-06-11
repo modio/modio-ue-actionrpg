@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2025 mod.io Pty Ltd. <https://mod.io>
+ *  Copyright (C) 2025-2026 mod.io Pty Ltd. <https://mod.io>
  *
  *  This file is part of the mod.io Action RPG demo project.
  *
@@ -14,6 +14,13 @@
 #include "MapBrowserWidgetBase.generated.h"
 
 class UMapTileWidgetBase;
+
+UENUM(BlueprintType)
+enum class EMapLoadMethod : uint8
+{
+	AssetManager UMETA(DisplayName = "Asset Manager"),
+	AssetRegistry UMETA(DisplayName = "Asset Registry")
+};
 
 /**
  *
@@ -32,4 +39,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UTileView> MapBrowserTileView;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UGC")
+	EMapLoadMethod LoadMethod = EMapLoadMethod::AssetManager;
 };

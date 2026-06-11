@@ -245,7 +245,7 @@ void UModioOculusAuthSubsystem::OnAuthenticationComplete(FModioErrorCode ec)
 		UE_LOG(LogActionRPGModio, Error, TEXT("Authentication failed: %s"), *ec.GetErrorMessage());
 		// Auth has failed for some reason, fall back to the email auth flow as an alternative.
 		// In reality, we should only do this if we were attempting an SSO flow and it failed?
-		// ShowEmailAuth();
+		ShowEmailAuth();
 	}
 	else
 	{
@@ -338,6 +338,8 @@ bool UModioOculusAuthSubsystem::HasUserAcceptedTerms() const
 void UModioOculusAuthSubsystem::TermsAccepted()
 {
 	bHasAcceptedTermsInThisSession = true;
+	// Start the authentication flow again
+	AuthenticateModio();
 }
 
 void UModioOculusAuthSubsystem::ShowEmailAuth()

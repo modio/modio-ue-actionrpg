@@ -28,9 +28,22 @@
       ]
     },
     {
+      "Name": "ModioPortalHelpers",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "AdditionalDependencies": [
+        "Engine"
+      ]
+    },
+    {
       "Name": "OSS_Provider",
       "Type": "Runtime",
       "LoadingPhase": "EarliestPossible"
+    },
+    {
+      "Name": "ActionRPGTests",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
     }
   ],
   "Plugins": [

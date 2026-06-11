@@ -8,8 +8,8 @@
 #include "ActionRPGModio.h"
 
 #include "ActionRPGModioSubsystem.h"
+#include "ModioUISubsystem.h"
 #include "Libraries/ModioSDKLibrary.h"
-#include "ModioEntitlementSubsystem.h"
 
 #if PLATFORM_WINDOWS
 THIRD_PARTY_INCLUDES_START
@@ -427,11 +427,11 @@ static FAutoConsoleCommand CmdAddSteamTokenPack(
 static FAutoConsoleCommand CmdRefreshEntitlements(
 	TEXT("Modio.RefreshEntitlements"), TEXT("Refresh Entitlements"),
 	FConsoleCommandWithArgsDelegate::CreateLambda([](const TArray<FString>& Args) {
-		UModioEntitlementSubsystem* ModioEntitlementSubsystem =
-			GEngine->GetEngineSubsystem<UModioEntitlementSubsystem>();
-		if (ModioEntitlementSubsystem)
+		UModioUISubsystem* ModioUISubsystem =
+			GEngine->GetEngineSubsystem<UModioUISubsystem>();
+		if (ModioUISubsystem)
 		{
-			ModioEntitlementSubsystem->RefreshUserEntitlements();
+			ModioUISubsystem->RequestRefreshEntitlements();
 		}
 	}));
 

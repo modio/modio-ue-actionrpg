@@ -10,7 +10,7 @@
 #include "ActionRPGCommonTypes.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
 #include "Types/ModioInitializeOptions.h"
-#include "UI/Interfaces/IModioUIDialog.h"
+#include "ModioUICore/Public/UI/Interfaces/IModioUIDialog.h"
 
 #include "ModioAuthSubsystem.generated.h"
 
@@ -75,17 +75,19 @@ private:
 
 	FModioInitializeOptions GetModioInitializeOptions() const;
 
-	TMap<FString, FString> GetExtendedAuthParamsForCurrentPlatform() const;
-
 	FString SaveSlot;
 	int32 SaveUserIndex;
 
 	bool ShouldClearSaveDataOnStart();
 	bool LoadOrCreateSaveGame();
+public:
 	UFUNCTION(BlueprintCallable, Category = Save)
 	void WriteSaveGame();
 	UFUNCTION(BlueprintCallable, Category = Save)
 	void ResetSaveGame();
+	UFUNCTION(BlueprintCallable, Category = Save)
+	void DeleteAllSaveData();
+private:
 
 	bool HandleSaveGameLoaded(USaveGame* SaveGameObject);
 

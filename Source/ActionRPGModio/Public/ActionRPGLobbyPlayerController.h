@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2025 mod.io Pty Ltd. <https://mod.io>
+ *  Copyright (C) 2025-2026 mod.io Pty Ltd. <https://mod.io>
  *
  *  This file is part of the mod.io Action RPG demo project.
  *
@@ -26,4 +26,17 @@ public:
 
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void ServerStartGame(FName Map);
+
+	
+	UFUNCTION(Client, Reliable)
+	void SendModListToServer();
+
+	UFUNCTION(Server, Reliable)
+	void RegisterClientModsWithServer(const TArray<FModioModID>& ModList);
+
+	UFUNCTION(Client, Reliable)
+	void UpdateClientTempMods(const TArray<FModioModID>& ModList);
+
+	void OnModManagementEvent(FModioModManagementEvent ModEvent);
+	FOnModManagementDelegateFast ModManagementEventHandle;
 };

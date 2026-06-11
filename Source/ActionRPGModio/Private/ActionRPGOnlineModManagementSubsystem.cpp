@@ -1,11 +1,15 @@
 /*
- *  Copyright (C) 2025 mod.io Pty Ltd. <https://mod.io>
+ *  Copyright (C) 2025-2026 mod.io Pty Ltd. <https://mod.io>
  *
  *  This file is part of the mod.io Action RPG demo project.
  *
  */
 
 #include "ActionRPGOnlineModManagementSubsystem.h"
+#include "OnlineSessionSettings.h"
+#if UE_SERVER
+	#include "ModioMultiplayerSubsystem.h"
+#endif
 
 #include "ActionRPGModio.h"
 #include "Engine/Level.h"
@@ -81,10 +85,23 @@ void UActionRPGOnlineModManagementSubsystem::CreateSession(FString GameName,
 
 void UActionRPGOnlineModManagementSubsystem::AddModsToSessionSettings()
 {
+#if UE_SERVER
+	TMap<FModioModID, FModioModCollectionEntry> InstalledMods =
+		GEngine->GetEngineSubsystem<UModioSubsystem>()->QuerySystemInstallations();
+
+	// We also want to add any registered client mods to the list here.
+	TSet<FModioModID> RegisteredClientMods =
+		GEngine->GetEngineSubsystem<UModioMultiplayerSubsystem>()->GetRegisteredClientMods();
+
+	int32 ModCount = InstalledMods.Num() + RegisteredClientMods.Num();
+#else
 	TMap<FModioModID, FModioModCollectionEntry> InstalledMods =
 		GEngine->GetEngineSubsystem<UModioSubsystem>()->QueryUserInstallations(false);
 
-	SessionSettings->Set(FName("NumMods"), InstalledMods.Num(), EOnlineDataAdvertisementType::ViaOnlineService);
+	int32 ModCount = InstalledMods.Num();
+#endif
+
+	SessionSettings->Set(FName("NumMods"), ModCount, EOnlineDataAdvertisementType::ViaOnlineService);
 	int i = 0;
 	for (auto& Mod : InstalledMods)
 	{
@@ -94,6 +111,17 @@ void UActionRPGOnlineModManagementSubsystem::AddModsToSessionSettings()
 		SessionSettings->Set(NameKey, Mod.Value.GetModProfile().ProfileName,
 							 EOnlineDataAdvertisementType::ViaOnlineService);
 	}
+
+#if UE_SERVER
+
+	for (const FModioModID& Mod : RegisteredClientMods)
+	{
+		FName IdKey = FName(*FString::Printf(TEXT("ModId_[%d]"), i));
+		SessionSettings->Set(IdKey, Mod.ToString(), EOnlineDataAdvertisementType::ViaOnlineService);
+		FName NameKey = FName(*FString::Printf(TEXT("ModName_[%d]"), i++));
+		SessionSettings->Set(NameKey, FString("Unknown for now"), EOnlineDataAdvertisementType::ViaOnlineService);
+	}
+#endif
 }
 
 void UActionRPGOnlineModManagementSubsystem::OnCreateSessionComplete(FName SessionName, bool bSuccess)
@@ -117,6 +145,8 @@ void UActionRPGOnlineModManagementSubsystem::OnCreateSessionComplete(FName Sessi
 
 	CreateSessionCompleteEvent.ExecuteIfBound(bSuccess);
 	CreateSessionHandle.Reset();
+
+	UE_LOG(LogActionRPGModio, Display, TEXT("Created session!"));
 }
 
 void UActionRPGOnlineModManagementSubsystem::FindSessions(FRPGOnFindSessionsComplete OnFindSessionsCompleteEvent)
@@ -134,7 +164,11 @@ void UActionRPGOnlineModManagementSubsystem::FindSessions(FRPGOnFindSessionsComp
 	LastSessionSearch = MakeShareable(new FOnlineSessionSearch());
 	LastSessionSearch->MaxSearchResults = 10;
 	LastSessionSearch->bIsLanQuery = true;
+#if UE_VERSION_OLDER_THAN(5, 5, 0)
 	LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+#else
+	LastSessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
+#endif
 
 	FindSessionsCompleteDelegate.BindUObject(this, &UActionRPGOnlineModManagementSubsystem::OnFindSessionsComplete);
 
@@ -159,14 +193,14 @@ void UActionRPGOnlineModManagementSubsystem::OnFindSessionsComplete(bool bSucces
 		BPResult.OnlineResult = Result;
 
 		FSessionResult SessionResult;
-		SessionResult.Result = std::move(BPResult);
+		SessionResult.Result = MoveTemp(BPResult);
 
 		Result.Session.SessionSettings.Get("MapName", SessionResult.MapName);
 		Result.Session.SessionSettings.Get("GameName", SessionResult.GameName);
 
 		GetModsFromSessionResult(SessionResult);
 
-		SessionResults.Add(std::move(SessionResult));
+		SessionResults.Add(MoveTemp(SessionResult));
 	}
 
 	const IOnlineSessionPtr SessionInterface = Online::GetSessionInterface(GetWorld());
@@ -221,6 +255,8 @@ void UActionRPGOnlineModManagementSubsystem::JoinSession(FSessionResult SessionR
 	if (!SessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession,
 									   SessionResult.Result.OnlineResult))
 	{
+		UE_LOG(LogActionRPGModio, Error, TEXT("Failed to join session: %s"),
+			   *SessionResult.Result.OnlineResult.GetSessionIdStr());
 		SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionHandle);
 		OnJoinSessionCompleteEvent.ExecuteIfBound(false);
 	}
@@ -450,8 +486,9 @@ void UActionRPGOnlineModManagementSubsystem::SyncServerModsOnClient(FSessionResu
 	// Only need to install missing mods
 	if (!ModsWorkingSet.IsEmpty())
 	{
-		ModIoSubsystem->EnableModManagement(ModManagementDelegate);
+		ModIoSubsystem->DisableModManagement();
 		ModManagementDelegate.BindUObject(this, &UActionRPGOnlineModManagementSubsystem::OnModManagementEvent);
+		ModIoSubsystem->EnableModManagement(ModManagementDelegate);
 	}
 
 	ModIoSubsystem->InitTempModSet(TempSet);

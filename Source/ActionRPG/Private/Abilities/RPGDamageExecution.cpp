@@ -3,6 +3,9 @@
 #include "Abilities/RPGDamageExecution.h"
 #include "Abilities/RPGAttributeSet.h"
 #include "AbilitySystemComponent.h"
+#include "RPGMutatorSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/GameInstance.h"
 
 struct RPGDamageStatics
 {
@@ -74,7 +77,9 @@ void URPGDamageExecution::Execute_Implementation(const FGameplayEffectCustomExec
 	float Damage = 0.f;
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().DamageDef, EvaluationParameters, Damage);
 
-	float DamageDone = Damage * AttackPower / DefensePower;
+	auto MutatorSubsystem = UGameplayStatics::GetGameInstance(TargetActor)->GetSubsystem<URPGMutatorSubsystem>();
+	auto DamageEvent = MutatorSubsystem->ModifyDamage({TargetActor, SourceActor, Damage * AttackPower / DefensePower});
+	float DamageDone = DamageEvent.Amount;
 	if (DamageDone > 0.f)
 	{
 		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(DamageStatics().DamageProperty, EGameplayModOp::Additive, DamageDone));

@@ -34,6 +34,9 @@ public:
 
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
+
+	void SetPlayerDefaults(APawn* PlayerPawn) override;
+
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = Game,
 			  meta = (DisplayName = "DoRestart", ScriptName = "DoRestart"))
@@ -45,6 +48,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	uint32 bGameOver : 1;
+
+
+	void GenericPlayerInitialization(AController* C) override;
 
 private:
 	uint8 CurrentPlayerStartIndex = 0;

@@ -3,8 +3,6 @@ using UnrealBuildTool;
 
 public class ActionRPGModio : ModuleRules
 {
-    protected virtual bool bPlatformHasModioHelpers => false;
-
     public ActionRPGModio(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
@@ -14,7 +12,8 @@ public class ActionRPGModio : ModuleRules
             {
                 "Core",
                 "Modio",
-                "ModioUGC"
+                "ModioUGC",
+                "ModioPortalHelpers"
             });
 
         PrivateDependencyModuleNames.AddRange(
@@ -30,8 +29,6 @@ public class ActionRPGModio : ModuleRules
                 "ModioUI",
                 "UMG"
             });
-
-        PublicDefinitions.Add("MODIO_USE_PLATFORM_HELPERS=" + (bPlatformHasModioHelpers ? "1" : "0"));
 
         if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Linux) ||
             (Target.Platform == UnrealTargetPlatform.Mac))

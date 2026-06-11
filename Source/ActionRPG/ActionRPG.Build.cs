@@ -14,7 +14,8 @@ public class ActionRPG : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"CommonUI"
+				"CommonUI",
+				"ModioUGC"
 			}
 		);
 
@@ -22,6 +23,7 @@ public class ActionRPG : ModuleRules
 			new string[] {
 				"ActionRPGLoadingScreen",
 				"ActionRPGModio",
+				"ModioPortalHelpers",
 				"Slate",
 				"SlateCore",
 				"InputCore",
@@ -67,5 +69,9 @@ public class ActionRPG : ModuleRules
 		{
 			PublicDependencyModuleNames.Add("Sentry");
 		}
-	}
+
+		//Set up mutator subclass for module
+        PublicDefinitions.Add("MUTATOR_CLASS=URPGMutator");
+        PublicDefinitions.Add("MUTATOR_SUBSYSTEM_CLASS=URPGMutatorSubsystem");
+    }
 }

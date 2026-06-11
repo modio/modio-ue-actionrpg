@@ -4,18 +4,15 @@
 #include "ActionRPGLoadingScreen.h"
 
 #if PLATFORM_ANDROID
-#include "Android/AndroidApplication.h"
-#include "Android/AndroidJNI.h"
-#include <android_native_app_glue.h>
+	#include "Android/AndroidApplication.h"
+	#include "Android/AndroidJNI.h"
+	#include <android_native_app_glue.h>
 #endif
 
-#define STRINGIFY_MACRO(x) FString(#x) 
+#define STRINGIFY_HELPER(x) #x
+#define STRINGIFY_MACRO(x) STRINGIFY_HELPER(x)
 
-
-URPGBlueprintLibrary::URPGBlueprintLibrary(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
+URPGBlueprintLibrary::URPGBlueprintLibrary(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {}
 
 void URPGBlueprintLibrary::PlayLoadingScreen(bool bPlayUntilStopped, float PlayTime)
 {
@@ -59,14 +56,17 @@ bool URPGBlueprintLibrary::DoesEffectContainerSpecHaveTargets(const FRPGGameplay
 	return ContainerSpec.HasValidTargets();
 }
 
-FRPGGameplayEffectContainerSpec URPGBlueprintLibrary::AddTargetsToEffectContainerSpec(const FRPGGameplayEffectContainerSpec& ContainerSpec, const TArray<FHitResult>& HitResults, const TArray<AActor*>& TargetActors)
+FRPGGameplayEffectContainerSpec URPGBlueprintLibrary::AddTargetsToEffectContainerSpec(
+	const FRPGGameplayEffectContainerSpec& ContainerSpec, const TArray<FHitResult>& HitResults,
+	const TArray<AActor*>& TargetActors)
 {
 	FRPGGameplayEffectContainerSpec NewSpec = ContainerSpec;
 	NewSpec.AddTargets(HitResults, TargetActors);
 	return NewSpec;
 }
 
-TArray<FActiveGameplayEffectHandle> URPGBlueprintLibrary::ApplyExternalEffectContainerSpec(const FRPGGameplayEffectContainerSpec& ContainerSpec)
+TArray<FActiveGameplayEffectHandle> URPGBlueprintLibrary::ApplyExternalEffectContainerSpec(
+	const FRPGGameplayEffectContainerSpec& ContainerSpec)
 {
 	TArray<FActiveGameplayEffectHandle> AllEffects;
 
@@ -89,12 +89,8 @@ FString URPGBlueprintLibrary::GetProjectVersion()
 {
 	FString ProjectVersion;
 
-	GConfig->GetString(
-		TEXT("/Script/EngineSettings.GeneralProjectSettings"),
-		TEXT("ProjectVersion"),
-		ProjectVersion,
-		GGameIni
-	);
+	GConfig->GetString(TEXT("/Script/EngineSettings.GeneralProjectSettings"), TEXT("ProjectVersion"), ProjectVersion,
+					   GGameIni);
 
 	return ProjectVersion;
 }
@@ -102,34 +98,34 @@ FString URPGBlueprintLibrary::GetProjectVersion()
 bool URPGBlueprintLibrary::IsOculusDevice()
 {
 #if PLATFORM_ANDROID
-    if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
-    {
-        jclass BuildClass = Env->FindClass("android/os/Build");
-        if (!BuildClass)
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jclass BuildClass = Env->FindClass("android/os/Build");
+		if (!BuildClass)
 		{
 			return false;
 		}
 
-        jfieldID ManufacturerField = Env->GetStaticFieldID(BuildClass, "MANUFACTURER", "Ljava/lang/String;");
-        if (!ManufacturerField)
+		jfieldID ManufacturerField = Env->GetStaticFieldID(BuildClass, "MANUFACTURER", "Ljava/lang/String;");
+		if (!ManufacturerField)
 		{
 			return false;
 		}
 
-        jstring ManufacturerJString = (jstring)Env->GetStaticObjectField(BuildClass, ManufacturerField);
-        const char* ManufacturerCString = Env->GetStringUTFChars(ManufacturerJString, 0);
+		jstring ManufacturerJString = (jstring) Env->GetStaticObjectField(BuildClass, ManufacturerField);
+		const char* ManufacturerCString = Env->GetStringUTFChars(ManufacturerJString, 0);
 
-        FString Manufacturer(ManufacturerCString);
-        Env->ReleaseStringUTFChars(ManufacturerJString, ManufacturerCString);
-        Env->DeleteLocalRef(ManufacturerJString);
-        Env->DeleteLocalRef(BuildClass);
+		FString Manufacturer(ManufacturerCString);
+		Env->ReleaseStringUTFChars(ManufacturerJString, ManufacturerCString);
+		Env->DeleteLocalRef(ManufacturerJString);
+		Env->DeleteLocalRef(BuildClass);
 
-        // Check if the manufacturer is "Oculus" or "Meta"
-        return Manufacturer.Contains(TEXT("Oculus")) || Manufacturer.Contains(TEXT("Meta"));
-    }
+		// Check if the manufacturer is "Oculus" or "Meta"
+		return Manufacturer.Contains(TEXT("Oculus")) || Manufacturer.Contains(TEXT("Meta"));
+	}
 #endif
 
-    return false; // Non-Android platforms are not Oculus devices
+	return false; // Non-Android platforms are not Oculus devices
 }
 
 bool URPGBlueprintLibrary::GetBuildID(FString& OutBuildID)

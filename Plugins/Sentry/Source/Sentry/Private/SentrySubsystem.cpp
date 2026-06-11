@@ -34,6 +34,9 @@
 #include "HAL/PlatformSentryId.h"
 #include "HAL/PlatformSentrySubsystem.h"
 
+#define STRINGIFY_HELPER(x) #x
+#define STRINGIFY_MACRO(x) STRINGIFY_HELPER(x)
+
 void USentrySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -49,6 +52,11 @@ void USentrySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		Initialize();
 	}
+#ifdef BUILD_ID
+	TMap<FString, FSentryVariant> ContextData;
+	ContextData.Add("ModioBuildID", FString(STRINGIFY_MACRO(BUILD_ID)));
+	SetContext("Build Info", ContextData);
+#endif
 }
 
 void USentrySubsystem::Deinitialize()
@@ -72,7 +80,8 @@ void USentrySubsystem::Initialize()
 
 	if (SubsystemNativeImpl->IsEnabled())
 	{
-		UE_LOG(LogSentrySdk, Warning, TEXT("Sentry is already initialized. It will be shut down automatically before re-init."));
+		UE_LOG(LogSentrySdk, Warning,
+			   TEXT("Sentry is already initialized. It will be shut down automatically before re-init."));
 		Close();
 	}
 
@@ -81,19 +90,25 @@ void USentrySubsystem::Initialize()
 
 	if (Settings->GetEffectiveDsn().IsEmpty())
 	{
-		UE_LOG(LogSentrySdk, Warning, TEXT("Sentry requires minimal configuration for its initialization - please provide the DSN in plugin settings."));
+		UE_LOG(LogSentrySdk, Warning,
+			   TEXT("Sentry requires minimal configuration for its initialization - please provide the DSN in plugin "
+					"settings."));
 		return;
 	}
 
 	if (!IsCurrentBuildConfigurationEnabled() || !IsCurrentBuildTargetEnabled())
 	{
-		UE_LOG(LogSentrySdk, Log, TEXT("Sentry initialization skipped since event capturing is disabled for the current configuration/target/build in plugin settings."));
+		UE_LOG(LogSentrySdk, Log,
+			   TEXT("Sentry initialization skipped since event capturing is disabled for the current "
+					"configuration/target/build in plugin settings."));
 		return;
 	}
 
 	if (IsPromotedBuildsOnlyEnabled() && !FApp::GetEngineIsPromotedBuild())
 	{
-		UE_LOG(LogSentrySdk, Log, TEXT("Sentry initialization skipped since event capturing is disabled for the non-promoted builds in plugin settings."));
+		UE_LOG(LogSentrySdk, Log,
+			   TEXT("Sentry initialization skipped since event capturing is disabled for the non-promoted builds in "
+					"plugin settings."));
 		return;
 	}
 
@@ -107,17 +122,16 @@ void USentrySubsystem::Initialize()
 			? NewObject<USentryBeforeBreadcrumbHandler>(this, static_cast<UClass*>(Settings->BeforeBreadcrumbHandler))
 			: nullptr;
 
-	BeforeLogHandler =
-		Settings->BeforeLogHandler != nullptr
-			? NewObject<USentryBeforeLogHandler>(this, static_cast<UClass*>(Settings->BeforeLogHandler))
-			: nullptr;
+	BeforeLogHandler = Settings->BeforeLogHandler != nullptr
+						   ? NewObject<USentryBeforeLogHandler>(this, static_cast<UClass*>(Settings->BeforeLogHandler))
+						   : nullptr;
 
-	TraceSampler =
-		Settings->TracesSampler != nullptr
-			? NewObject<USentryTraceSampler>(this, static_cast<UClass*>(Settings->TracesSampler))
-			: nullptr;
+	TraceSampler = Settings->TracesSampler != nullptr
+					   ? NewObject<USentryTraceSampler>(this, static_cast<UClass*>(Settings->TracesSampler))
+					   : nullptr;
 
-	SubsystemNativeImpl->InitWithSettings(Settings, BeforeSendHandler, BeforeBreadcrumbHandler, BeforeLogHandler, TraceSampler);
+	SubsystemNativeImpl->InitWithSettings(Settings, BeforeSendHandler, BeforeBreadcrumbHandler, BeforeLogHandler,
+										  TraceSampler);
 
 	if (!SubsystemNativeImpl->IsEnabled())
 	{
@@ -135,8 +149,7 @@ void USentrySubsystem::Initialize()
 	ConfigureOutputDevice();
 	ConfigureErrorOutputDevice();
 
-	OnEnsureDelegate = FCoreDelegates::OnHandleSystemEnsure.AddWeakLambda(this, [this]()
-	{
+	OnEnsureDelegate = FCoreDelegates::OnHandleSystemEnsure.AddWeakLambda(this, [this]() {
 		verify(SubsystemNativeImpl);
 
 		FString EnsureMessage = GErrorHist;
@@ -146,7 +159,8 @@ void USentrySubsystem::Initialize()
 
 void USentrySubsystem::InitializeWithSettings(const FConfigureSettingsDelegate& OnConfigureSettings)
 {
-	return InitializeWithSettings(FConfigureSettingsNativeDelegate::CreateUFunction(const_cast<UObject*>(OnConfigureSettings.GetUObject()), OnConfigureSettings.GetFunctionName()));
+	return InitializeWithSettings(FConfigureSettingsNativeDelegate::CreateUFunction(
+		const_cast<UObject*>(OnConfigureSettings.GetUObject()), OnConfigureSettings.GetFunctionName()));
 }
 
 void USentrySubsystem::InitializeWithSettings(const FConfigureSettingsNativeDelegate& OnConfigureSettings)
@@ -226,7 +240,8 @@ void USentrySubsystem::AddBreadcrumb(USentryBreadcrumb* Breadcrumb)
 	SubsystemNativeImpl->AddBreadcrumb(Breadcrumb->GetNativeObject());
 }
 
-void USentrySubsystem::AddBreadcrumbWithParams(const FString& Message, const FString& Category, const FString& Type, const TMap<FString, FSentryVariant>& Data, ESentryLevel Level)
+void USentrySubsystem::AddBreadcrumbWithParams(const FString& Message, const FString& Category, const FString& Type,
+											   const TMap<FString, FSentryVariant>& Data, ESentryLevel Level)
 {
 	check(SubsystemNativeImpl);
 
@@ -358,12 +373,19 @@ FString USentrySubsystem::CaptureMessage(const FString& Message, ESentryLevel Le
 	return SentryId->ToString();
 }
 
-FString USentrySubsystem::CaptureMessageWithScope(const FString& Message, const FConfigureScopeDelegate& OnConfigureScope, ESentryLevel Level)
+FString USentrySubsystem::CaptureMessageWithScope(const FString& Message,
+												  const FConfigureScopeDelegate& OnConfigureScope, ESentryLevel Level)
 {
-	return CaptureMessageWithScope(Message, FConfigureScopeNativeDelegate::CreateUFunction(const_cast<UObject*>(OnConfigureScope.GetUObject()), OnConfigureScope.GetFunctionName()), Level);
+	return CaptureMessageWithScope(
+		Message,
+		FConfigureScopeNativeDelegate::CreateUFunction(const_cast<UObject*>(OnConfigureScope.GetUObject()),
+													   OnConfigureScope.GetFunctionName()),
+		Level);
 }
 
-FString USentrySubsystem::CaptureMessageWithScope(const FString& Message, const FConfigureScopeNativeDelegate& OnConfigureScope, ESentryLevel Level)
+FString USentrySubsystem::CaptureMessageWithScope(const FString& Message,
+												  const FConfigureScopeNativeDelegate& OnConfigureScope,
+												  ESentryLevel Level)
 {
 	check(SubsystemNativeImpl);
 
@@ -372,11 +394,11 @@ FString USentrySubsystem::CaptureMessageWithScope(const FString& Message, const 
 		return FString();
 	}
 
-	const auto ConfigureScopeLambda = FSentryScopeDelegate::CreateLambda([OnConfigureScope](TSharedPtr<ISentryScope> NativeScope)
-	{
-		USentryScope* UnrealScope = USentryScope::Create(NativeScope);
-		OnConfigureScope.ExecuteIfBound(UnrealScope);
-	});
+	const auto ConfigureScopeLambda =
+		FSentryScopeDelegate::CreateLambda([OnConfigureScope](TSharedPtr<ISentryScope> NativeScope) {
+			USentryScope* UnrealScope = USentryScope::Create(NativeScope);
+			OnConfigureScope.ExecuteIfBound(UnrealScope);
+		});
 
 	TSharedPtr<ISentryId> SentryId = SubsystemNativeImpl->CaptureMessageWithScope(Message, Level, ConfigureScopeLambda);
 	if (!SentryId)
@@ -413,10 +435,13 @@ FString USentrySubsystem::CaptureEvent(USentryEvent* Event)
 
 FString USentrySubsystem::CaptureEventWithScope(USentryEvent* Event, const FConfigureScopeDelegate& OnConfigureScope)
 {
-	return CaptureEventWithScope(Event, FConfigureScopeNativeDelegate::CreateUFunction(const_cast<UObject*>(OnConfigureScope.GetUObject()), OnConfigureScope.GetFunctionName()));
+	return CaptureEventWithScope(
+		Event, FConfigureScopeNativeDelegate::CreateUFunction(const_cast<UObject*>(OnConfigureScope.GetUObject()),
+															  OnConfigureScope.GetFunctionName()));
 }
 
-FString USentrySubsystem::CaptureEventWithScope(USentryEvent* Event, const FConfigureScopeNativeDelegate& OnConfigureScope)
+FString USentrySubsystem::CaptureEventWithScope(USentryEvent* Event,
+												const FConfigureScopeNativeDelegate& OnConfigureScope)
 {
 	check(SubsystemNativeImpl);
 	check(Event);
@@ -431,13 +456,14 @@ FString USentrySubsystem::CaptureEventWithScope(USentryEvent* Event, const FConf
 		return FString();
 	}
 
-	const auto ConfigureScopeLambda = FSentryScopeDelegate::CreateLambda([OnConfigureScope](TSharedPtr<ISentryScope> NativeScope)
-	{
-		USentryScope* UnrealScope = USentryScope::Create(NativeScope);
-		OnConfigureScope.ExecuteIfBound(UnrealScope);
-	});
+	const auto ConfigureScopeLambda =
+		FSentryScopeDelegate::CreateLambda([OnConfigureScope](TSharedPtr<ISentryScope> NativeScope) {
+			USentryScope* UnrealScope = USentryScope::Create(NativeScope);
+			OnConfigureScope.ExecuteIfBound(UnrealScope);
+		});
 
-	TSharedPtr<ISentryId> SentryId = SubsystemNativeImpl->CaptureEventWithScope(Event->GetNativeObject(), ConfigureScopeLambda);
+	TSharedPtr<ISentryId> SentryId =
+		SubsystemNativeImpl->CaptureEventWithScope(Event->GetNativeObject(), ConfigureScopeLambda);
 	if (!SentryId)
 	{
 		return FString();
@@ -464,7 +490,8 @@ void USentrySubsystem::CaptureFeedback(USentryFeedback* Feedback)
 	SubsystemNativeImpl->CaptureFeedback(Feedback->GetNativeObject());
 }
 
-void USentrySubsystem::CaptureFeedbackWithParams(const FString& Message, const FString& Name, const FString& Email, const FString& EventId)
+void USentrySubsystem::CaptureFeedbackWithParams(const FString& Message, const FString& Name, const FString& Email,
+												 const FString& EventId)
 {
 	check(SubsystemNativeImpl);
 
@@ -632,7 +659,8 @@ USentryTransaction* USentrySubsystem::StartTransaction(const FString& Name, cons
 		return nullptr;
 	}
 
-	TSharedPtr<ISentryTransaction> SentryTransaction = SubsystemNativeImpl->StartTransaction(Name, Operation, BindToScope);
+	TSharedPtr<ISentryTransaction> SentryTransaction =
+		SubsystemNativeImpl->StartTransaction(Name, Operation, BindToScope);
 	if (!SentryTransaction)
 	{
 		return nullptr;
@@ -656,7 +684,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContext(USentryTransac
 		return nullptr;
 	}
 
-	TSharedPtr<ISentryTransaction> SentryTransaction = SubsystemNativeImpl->StartTransactionWithContext(Context->GetNativeObject(), BindToScope);
+	TSharedPtr<ISentryTransaction> SentryTransaction =
+		SubsystemNativeImpl->StartTransactionWithContext(Context->GetNativeObject(), BindToScope);
 	if (!SentryTransaction)
 	{
 		return nullptr;
@@ -665,7 +694,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContext(USentryTransac
 	return USentryTransaction::Create(SentryTransaction);
 }
 
-USentryTransaction* USentrySubsystem::StartTransactionWithContextAndTimestamp(USentryTransactionContext* Context, int64 Timestamp, bool BindToScope)
+USentryTransaction* USentrySubsystem::StartTransactionWithContextAndTimestamp(USentryTransactionContext* Context,
+																			  int64 Timestamp, bool BindToScope)
 {
 	check(SubsystemNativeImpl);
 	check(Context);
@@ -680,7 +710,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContextAndTimestamp(US
 		return nullptr;
 	}
 
-	TSharedPtr<ISentryTransaction> SentryTransaction = SubsystemNativeImpl->StartTransactionWithContextAndTimestamp(Context->GetNativeObject(), Timestamp, BindToScope);
+	TSharedPtr<ISentryTransaction> SentryTransaction = SubsystemNativeImpl->StartTransactionWithContextAndTimestamp(
+		Context->GetNativeObject(), Timestamp, BindToScope);
 	if (!SentryTransaction)
 	{
 		return nullptr;
@@ -689,7 +720,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContextAndTimestamp(US
 	return USentryTransaction::Create(SentryTransaction);
 }
 
-USentryTransaction* USentrySubsystem::StartTransactionWithContextAndOptions(USentryTransactionContext* Context, const FSentryTransactionOptions& Options)
+USentryTransaction* USentrySubsystem::StartTransactionWithContextAndOptions(USentryTransactionContext* Context,
+																			const FSentryTransactionOptions& Options)
 {
 	check(SubsystemNativeImpl);
 	check(Context);
@@ -704,7 +736,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContextAndOptions(USen
 		return nullptr;
 	}
 
-	TSharedPtr<ISentryTransaction> SentryTransaction = SubsystemNativeImpl->StartTransactionWithContextAndOptions(Context->GetNativeObject(), Options);
+	TSharedPtr<ISentryTransaction> SentryTransaction =
+		SubsystemNativeImpl->StartTransactionWithContextAndOptions(Context->GetNativeObject(), Options);
 	if (!SentryTransaction)
 	{
 		return nullptr;
@@ -713,7 +746,8 @@ USentryTransaction* USentrySubsystem::StartTransactionWithContextAndOptions(USen
 	return USentryTransaction::Create(SentryTransaction);
 }
 
-USentryTransactionContext* USentrySubsystem::ContinueTrace(const FString& SentryTrace, const TArray<FString>& BaggageHeaders)
+USentryTransactionContext* USentrySubsystem::ContinueTrace(const FString& SentryTrace,
+														   const TArray<FString>& BaggageHeaders)
 {
 	check(SubsystemNativeImpl);
 
@@ -722,7 +756,8 @@ USentryTransactionContext* USentrySubsystem::ContinueTrace(const FString& Sentry
 		return nullptr;
 	}
 
-	TSharedPtr<ISentryTransactionContext> SentryTransactionContext = SubsystemNativeImpl->ContinueTrace(SentryTrace, BaggageHeaders);
+	TSharedPtr<ISentryTransactionContext> SentryTransactionContext =
+		SubsystemNativeImpl->ContinueTrace(SentryTrace, BaggageHeaders);
 	if (!SentryTransactionContext)
 	{
 		return nullptr;
@@ -811,7 +846,8 @@ void USentrySubsystem::AddDeviceContext()
 	TMap<FString, FSentryVariant> DeviceContext;
 	DeviceContext.Add(TEXT("cpu_description"), FPlatformMisc::GetCPUBrand());
 	DeviceContext.Add(TEXT("number_of_cores"), FString::FromInt(FPlatformMisc::NumberOfCores()));
-	DeviceContext.Add(TEXT("number_of_cores_including_hyperthreads"), FString::FromInt(FPlatformMisc::NumberOfCoresIncludingHyperthreads()));
+	DeviceContext.Add(TEXT("number_of_cores_including_hyperthreads"),
+					  FString::FromInt(FPlatformMisc::NumberOfCoresIncludingHyperthreads()));
 	DeviceContext.Add(TEXT("physical_memory_size_gb"), FString::FromInt(MemoryConstants.TotalPhysicalGB));
 
 	SubsystemNativeImpl->SetContext(TEXT("device"), DeviceContext);
@@ -862,49 +898,53 @@ void USentrySubsystem::ConfigureBreadcrumbs()
 
 	if (Settings->AutomaticBreadcrumbs.bOnMapLoadingStarted)
 	{
-		PreLoadMapDelegate = FCoreUObjectDelegates::PreLoadMap.AddWeakLambda(this, [this](const FString& MapName)
-		{
-			AddBreadcrumbWithParams(TEXT("PreLoadMap"), TEXT("Unreal"), TEXT("Default"), { { TEXT("Map"), MapName } }, ESentryLevel::Info);
+		PreLoadMapDelegate = FCoreUObjectDelegates::PreLoadMap.AddWeakLambda(this, [this](const FString& MapName) {
+			AddBreadcrumbWithParams(TEXT("PreLoadMap"), TEXT("Unreal"), TEXT("Default"), {{TEXT("Map"), MapName}},
+									ESentryLevel::Info);
 		});
 	}
 
 	if (Settings->AutomaticBreadcrumbs.bOnMapLoaded)
 	{
-		PostLoadMapDelegate = FCoreUObjectDelegates::PostLoadMapWithWorld.AddWeakLambda(this, [this](UWorld* World)
-		{
+		PostLoadMapDelegate = FCoreUObjectDelegates::PostLoadMapWithWorld.AddWeakLambda(this, [this](UWorld* World) {
 			if (World)
 			{
-				AddBreadcrumbWithParams(TEXT("PostLoadMapWithWorld"), TEXT("Unreal"), TEXT("Default"), { { TEXT("Map"), World->GetMapName() } }, ESentryLevel::Info);
+				AddBreadcrumbWithParams(TEXT("PostLoadMapWithWorld"), TEXT("Unreal"), TEXT("Default"),
+										{{TEXT("Map"), World->GetMapName()}}, ESentryLevel::Info);
 			}
 			else
 			{
-				AddBreadcrumbWithParams(TEXT("PostLoadMapWithWorld"), TEXT("Unreal"), TEXT("Default"), { { TEXT("Error"), TEXT("Map load failed") } }, ESentryLevel::Error);
+				AddBreadcrumbWithParams(TEXT("PostLoadMapWithWorld"), TEXT("Unreal"), TEXT("Default"),
+										{{TEXT("Error"), TEXT("Map load failed")}}, ESentryLevel::Error);
 			}
 		});
 	}
 
 	if (Settings->AutomaticBreadcrumbs.bOnGameStateClassChanged)
 	{
-		GameStateChangedDelegate = FCoreDelegates::GameStateClassChanged.AddWeakLambda(this, [this](const FString& GameState)
-		{
-			AddBreadcrumbWithParams(TEXT("GameStateClassChanged"), TEXT("Unreal"), TEXT("Default"), { { TEXT("GameState"), GameState } }, ESentryLevel::Info);
-		});
+		GameStateChangedDelegate =
+			FCoreDelegates::GameStateClassChanged.AddWeakLambda(this, [this](const FString& GameState) {
+				AddBreadcrumbWithParams(TEXT("GameStateClassChanged"), TEXT("Unreal"), TEXT("Default"),
+										{{TEXT("GameState"), GameState}}, ESentryLevel::Info);
+			});
 	}
 
 	if (Settings->AutomaticBreadcrumbs.bOnUserActivityStringChanged)
 	{
-		UserActivityChangedDelegate = FCoreDelegates::UserActivityStringChanged.AddWeakLambda(this, [this](const FString& Activity)
-		{
-			AddBreadcrumbWithParams(TEXT("UserActivityStringChanged"), TEXT("Unreal"), TEXT("Default"), { { TEXT("Activity"), Activity } }, ESentryLevel::Info);
-		});
+		UserActivityChangedDelegate =
+			FCoreDelegates::UserActivityStringChanged.AddWeakLambda(this, [this](const FString& Activity) {
+				AddBreadcrumbWithParams(TEXT("UserActivityStringChanged"), TEXT("Unreal"), TEXT("Default"),
+										{{TEXT("Activity"), Activity}}, ESentryLevel::Info);
+			});
 	}
 
 	if (Settings->AutomaticBreadcrumbs.bOnGameSessionIDChanged)
 	{
-		GameSessionIDChangedDelegate = FCoreDelegates::GameSessionIDChanged.AddWeakLambda(this, [this](const FString& SessionId)
-		{
-			AddBreadcrumbWithParams(TEXT("GameSessionIDChanged"), TEXT("Unreal"), TEXT("Default"), { { TEXT("Session ID"), SessionId } }, ESentryLevel::Info);
-		});
+		GameSessionIDChangedDelegate =
+			FCoreDelegates::GameSessionIDChanged.AddWeakLambda(this, [this](const FString& SessionId) {
+				AddBreadcrumbWithParams(TEXT("GameSessionIDChanged"), TEXT("Unreal"), TEXT("Default"),
+										{{TEXT("Session ID"), SessionId}}, ESentryLevel::Info);
+			});
 	}
 }
 
@@ -943,18 +983,18 @@ bool USentrySubsystem::IsCurrentBuildConfigurationEnabled() const
 
 	switch (FApp::GetBuildConfiguration())
 	{
-	case EBuildConfiguration::Debug:
-		return Settings->EnableBuildConfigurations.bEnableDebug;
-	case EBuildConfiguration::DebugGame:
-		return Settings->EnableBuildConfigurations.bEnableDebugGame;
-	case EBuildConfiguration::Development:
-		return Settings->EnableBuildConfigurations.bEnableDevelopment;
-	case EBuildConfiguration::Shipping:
-		return Settings->EnableBuildConfigurations.bEnableShipping;
-	case EBuildConfiguration::Test:
-		return Settings->EnableBuildConfigurations.bEnableTest;
-	default:
-		return false;
+		case EBuildConfiguration::Debug:
+			return Settings->EnableBuildConfigurations.bEnableDebug;
+		case EBuildConfiguration::DebugGame:
+			return Settings->EnableBuildConfigurations.bEnableDebugGame;
+		case EBuildConfiguration::Development:
+			return Settings->EnableBuildConfigurations.bEnableDevelopment;
+		case EBuildConfiguration::Shipping:
+			return Settings->EnableBuildConfigurations.bEnableShipping;
+		case EBuildConfiguration::Test:
+			return Settings->EnableBuildConfigurations.bEnableTest;
+		default:
+			return false;
 	}
 }
 
@@ -965,18 +1005,18 @@ bool USentrySubsystem::IsCurrentBuildTargetEnabled() const
 
 	switch (FApp::GetBuildTargetType())
 	{
-	case EBuildTargetType::Game:
-		return Settings->EnableBuildTargets.bEnableGame;
-	case EBuildTargetType::Server:
-		return Settings->EnableBuildTargets.bEnableServer;
-	case EBuildTargetType::Client:
-		return Settings->EnableBuildTargets.bEnableClient;
-	case EBuildTargetType::Editor:
-		return Settings->EnableBuildTargets.bEnableEditor;
-	case EBuildTargetType::Program:
-		return Settings->EnableBuildTargets.bEnableProgram;
-	default:
-		return false;
+		case EBuildTargetType::Game:
+			return Settings->EnableBuildTargets.bEnableGame;
+		case EBuildTargetType::Server:
+			return Settings->EnableBuildTargets.bEnableServer;
+		case EBuildTargetType::Client:
+			return Settings->EnableBuildTargets.bEnableClient;
+		case EBuildTargetType::Editor:
+			return Settings->EnableBuildTargets.bEnableEditor;
+		case EBuildTargetType::Program:
+			return Settings->EnableBuildTargets.bEnableProgram;
+		default:
+			return false;
 	}
 }
 
@@ -994,7 +1034,9 @@ void USentrySubsystem::ConfigureOutputDevice()
 	if (OutputDevice)
 	{
 		GLog->AddOutputDevice(OutputDevice.Get());
+#if UE_VERSION_OLDER_THAN(5, 7, 0)
 		GLog->SerializeBacklog(OutputDevice.Get());
+#endif
 	}
 }
 
@@ -1003,8 +1045,7 @@ void USentrySubsystem::ConfigureErrorOutputDevice()
 	OutputDeviceError = MakeShareable(new FSentryErrorOutputDevice(GError));
 	if (OutputDeviceError)
 	{
-		OnAssertDelegate = OutputDeviceError->OnAssert.AddWeakLambda(this, [this](const FString& Message)
-		{
+		OnAssertDelegate = OutputDeviceError->OnAssert.AddWeakLambda(this, [this](const FString& Message) {
 			check(SubsystemNativeImpl);
 			SubsystemNativeImpl->HandleAssert();
 		});

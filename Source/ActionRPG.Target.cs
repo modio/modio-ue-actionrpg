@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using UnrealBuildTool;
 
@@ -9,10 +10,14 @@ public class ActionRPGTarget : TargetRules
 	public ActionRPGTarget( TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
+        if (Directory.Exists("./ModioDebugUI"))
+        {
+            ExtraModuleNames.AddRange(new string[] { "ModioDebugUI" });
+        }
 
-		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
-		ExtraModuleNames.AddRange( new string[] { "ActionRPG", "ActionRPGModio", "OSS_Provider" } );
+		ExtraModuleNames.AddRange( new string[] { "ActionRPG", "ActionRPGModio", "OSS_Provider", "ModioPortalHelpers" } );
 
 		// For debug sym generation
 		MacPlatform.bUseDSYMFiles = true;

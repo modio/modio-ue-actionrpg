@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2025 mod.io Pty Ltd. <https://mod.io>
+ *  Copyright (C) 2025-2026 mod.io Pty Ltd. <https://mod.io>
  *
  *  This file is part of the mod.io Action RPG demo project.
  *
@@ -10,42 +10,48 @@
 #include "AssetRegistry/AssetRegistryState.h"
 #include "Components/PanelWidget.h"
 #include "Engine/AssetManager.h"
+#include "Engine/World.h"
 #include "Misc/EngineVersionComparison.h"
 #include "Widgets/MapTileWidgetBase.h"
 
 TArray<TSoftObjectPtr<UObject>> UMapBrowserWidgetBase::FetchMapsList()
 {
-	TArray<TSoftObjectPtr<UObject>> MapList;
-
 	////////////////////////////////////////////////////////////////////////////
 	// Method 1
 	// Loading via the Asset Manager
 	////////////////////////////////////////////////////////////////////////////
+	UE_LOG(LogTemp, Log, TEXT("Finding maps via Asset Manager"));
+	TArray<TSoftObjectPtr<UObject>> AssetManagerMapList;
 	UAssetManager& AssetManager = UAssetManager::Get();
 	TArray<FPrimaryAssetId> OutAssetIDs;
 	AssetManager.GetPrimaryAssetIdList(FPrimaryAssetType("Map"), OutAssetIDs);
-	for (FPrimaryAssetId AssetID : OutAssetIDs)
+
+	for (const FPrimaryAssetId& AssetID : OutAssetIDs)
 	{
 		FAssetData AssetData;
 		AssetManager.GetPrimaryAssetData(AssetID, AssetData);
 
 		if (AssetData.IsValid())
 		{
-			MapList.Add(TSoftObjectPtr<UObject>(AssetData.GetAsset()));
+			// Use AssetData.AssetName instead of loading the asset
+			UE_LOG(LogTemp, Log, TEXT("    -> Found map: %s"), *AssetData.AssetName.ToString());
+
+			// Create TSoftObjectPtr from the asset path WITHOUT loading it
+			FSoftObjectPath AssetPath = AssetData.GetSoftObjectPath();
+			AssetManagerMapList.Add(TSoftObjectPtr<UObject>(AssetPath));
 		}
 	}
-	return MapList;
-
 	////////////////////////////////////////////////////////////////////////////
 	// Method 2
 	// Loading via the Asset Registry
 	////////////////////////////////////////////////////////////////////////////
-	/*FAssetRegistryModule& AssetRegistryModule =
-		FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	UE_LOG(LogTemp, Log, TEXT("Finding maps via Asset Registry"));
+	TArray<TSoftObjectPtr<UObject>> AssetRegistryMapList;
+	FAssetRegistryModule& AssetRegistryModule =
+		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
 	FARFilter ARFilter;
-	TArray<FAssetData> AssetList;
 #if UE_VERSION_NEWER_THAN(5, 1, 0)
 	ARFilter.ClassPaths.Add(UWorld::StaticClass()->GetClassPathName());
 #else
@@ -53,18 +59,29 @@ TArray<TSoftObjectPtr<UObject>> UMapBrowserWidgetBase::FetchMapsList()
 #endif
 	ARFilter.bIncludeOnlyOnDiskAssets = true;
 
-	FARCompiledFilter CompiledFilter;
-	IAssetRegistry::Get()->CompileFilter(ARFilter, CompiledFilter);
-
 	// Query for assets
 	TArray<FAssetData> AssetDataArray;
 	AssetRegistry.GetAssets(ARFilter, AssetDataArray);
 
-	// Iterate through the found assets and print out their names (or do other logic)
 	for (const FAssetData& AssetData : AssetDataArray)
 	{
-		MapList.Add(TSoftObjectPtr<UObject>(AssetData.GetAsset()));
+		if (AssetData.IsValid())
+		{
+			// Use AssetData.AssetName instead of loading the asset
+			UE_LOG(LogTemp, Log, TEXT("    -> Found map: %s"), *AssetData.AssetName.ToString());
+
+			// Create TSoftObjectPtr from the asset path WITHOUT loading it
+			FSoftObjectPath AssetPath = AssetData.GetSoftObjectPath();
+			AssetRegistryMapList.Add(TSoftObjectPtr<UObject>(AssetPath));
+		}
 	}
 
-	return MapList;*/
+	if (LoadMethod == EMapLoadMethod::AssetManager)
+	{
+		return AssetManagerMapList;
+	}
+	else
+	{
+		return AssetRegistryMapList;
+	}
 }

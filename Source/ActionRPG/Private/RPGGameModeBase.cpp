@@ -5,6 +5,10 @@
 #include "GameFramework/PlayerStart.h"
 #include "RPGGameStateBase.h"
 #include "RPGPlayerControllerBase.h"
+#include "Mutators/MutatorSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/GameInstance.h"
+#include "MutatorEvents.generated.inl"
 
 ARPGGameModeBase::ARPGGameModeBase()
 {
@@ -30,6 +34,22 @@ void ARPGGameModeBase::GameOver()
 		K2_OnGameOver();
 		bGameOver = true;
 	}
+}
+
+void ARPGGameModeBase::SetPlayerDefaults(APawn* PlayerPawn)
+{
+	Super::SetPlayerDefaults(PlayerPawn);
+	
+	auto MutatorSubsystem = UGameplayStatics::GetGameInstance(PlayerPawn)->GetSubsystem<UUGCMutatorSubsystem>();
+	MutatorSubsystem->PostPawnSpawned({PlayerPawn});
+}
+
+void ARPGGameModeBase::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+
+	auto MutatorSubsystem = UGameplayStatics::GetGameInstance(C)->GetSubsystem<UUGCMutatorSubsystem>();
+	MutatorSubsystem->PostPlayerInit({C});
 }
 
 AActor* ARPGGameModeBase::ChoosePlayerStart_Implementation(AController* Player)

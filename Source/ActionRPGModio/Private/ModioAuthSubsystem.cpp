@@ -16,6 +16,8 @@
 #include "Libraries/ModioErrorConditionLibrary.h"
 #include "Libraries/ModioPlatformHelpersLibrary.h"
 #include "Libraries/ModioSDKLibrary.h"
+#include "Misc/EngineVersionComparison.h"
+#include "ModioOnlinePortalHelper.h"
 #include "ModioSaveGame.h"
 #include "ModioSubsystem.h"
 #include "ModioUISubsystem.h"
@@ -102,9 +104,15 @@ void UModioAuthSubsystem::AuthenticateModio()
 
 			AuthParams.AuthToken = AuthTokenString;
 			AuthParams.bUserHasAcceptedTerms = bHasAcceptedTermsInThisSession;
-			AuthParams.ExtendedParameters = GetExtendedAuthParamsForCurrentPlatform();
+			AuthParams.ExtendedParameters = IModioPortalInterface::Execute_GetExtendedAuthParams(ModioSubsystem->GetPortalInterfaceObject());
 
 			UE_LOG(LogActionRPGModio, Log, TEXT("Authenticating user via OSS"));
+			UE_LOG(LogActionRPGModio, Log, TEXT("Authenticating with Params: Accepted Terms: %hs | Auth Token: %s"),
+				   (bHasAcceptedTermsInThisSession ? "true" : "false"), *AuthParams.AuthToken);
+			for (const auto& [key, value] : AuthParams.ExtendedParameters)
+			{
+				UE_LOG(LogActionRPGModio, Log, TEXT("Extended Param: %s | %s"), *key, *value);
+			}
 
 			ModioSubsystem->AuthenticateUserExternalAsync(
 				AuthParams, UModioPlatformHelpersLibrary::GetDefaultAuthProviderForCurrentPlatform(),
@@ -113,7 +121,6 @@ void UModioAuthSubsystem::AuthenticateModio()
 		else
 		{
 			UE_LOG(LogActionRPGModio, Error, TEXT("Failed to authenticate user via OSS"));
-
 			ShowEmailAuth();
 		}
 	}
@@ -200,9 +207,12 @@ void UModioAuthSubsystem::ShowModBrowser()
 			UUserWidget* MenuWidget = CreateWidget<UUserWidget>(GetPlayerController(), ModBrowserWidgetClass);
 			MenuWidget->AddToViewport();
 
-			// After the browser is added we update the wallet balance, if monetization is enabled.
 			if (UModioUISubsystem* Modio = GEngine->GetEngineSubsystem<UModioUISubsystem>())
 			{
+				// Get and cache the user's following list
+				Modio->RequestListUserFollowing();
+
+				// After the browser is added we update the wallet balance, if monetization is enabled.
 				if (Modio->IsUGCFeatureEnabled(EModioUIFeatureFlags::Monetization))
 				{
 					Modio->RequestRefreshEntitlements();
@@ -215,8 +225,8 @@ void UModioAuthSubsystem::ShowModBrowser()
 void UModioAuthSubsystem::OnSubsystemLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId,
 												   const FString& Error)
 {
-	// If we've successfully logged in via an OSS, attempt to get a linked account auth token. If successful, this will
-	// let us perform SSO.
+	// If we've successfully logged in via an OSS, attempt to get a linked account auth token. If successful, this
+	// will let us perform SSO.
 	if (bWasSuccessful)
 	{
 		const IOnlineIdentityPtr OnlineIdentity = IOnlineSubsystem::GetByPlatform()->GetIdentityInterface();
@@ -319,7 +329,7 @@ void UModioAuthSubsystem::OnAuthenticationComplete_Internal(FModioErrorCode ec)
 	{
 		// Auth has failed for some reason, fall back to the email auth flow as an alternative.
 		// In reality, we should only do this if we were attempting an SSO flow and it failed?
-		// ShowEmailAuth();
+		ShowEmailAuth();
 	}
 	else
 	{
@@ -336,6 +346,8 @@ void UModioAuthSubsystem::EmailAuthCompleted()
 void UModioAuthSubsystem::TermsAccepted()
 {
 	bHasAcceptedTermsInThisSession = true;
+	// Start the authentication flow again
+	AuthenticateModio();
 }
 
 APlayerController* UModioAuthSubsystem::GetPlayerController() const
@@ -343,15 +355,12 @@ APlayerController* UModioAuthSubsystem::GetPlayerController() const
 	return GetLocalPlayer()->GetPlayerController(GetWorld());
 }
 
-TMap<FString, FString> UModioAuthSubsystem::GetExtendedAuthParamsForCurrentPlatform() const
-{
-	// @TODO: Abstract this out so that we can keep NDA code out of this subsystem for an eventual public release
-	return TMap<FString, FString>();
-}
-
 TArray<EModioPlatformName> UModioAuthSubsystem::EmailAuthPlatforms = {
 	EModioPlatformName::Android,
+#if UE_VERSION_OLDER_THAN(5, 6, 0) // SSO not supported in 5.5 or older
 	EModioPlatformName::Switch,
+	EModioPlatformName::Switch2,
+#endif
 };
 
 bool UModioAuthSubsystem::ShouldUseEmailAuth()
@@ -413,6 +422,24 @@ void UModioAuthSubsystem::WriteSaveGame()
 void UModioAuthSubsystem::ResetSaveGame()
 {
 	// Call handle function with no loaded save, this will reset the data
+	HandleSaveGameLoaded(nullptr);
+}
+
+void UModioAuthSubsystem::DeleteAllSaveData()
+{
+	// Remove the file from disk
+	if (UGameplayStatics::DoesSaveGameExist(SaveSlot, SaveUserIndex))
+	{
+		const bool bDeleted = UGameplayStatics::DeleteGameInSlot(SaveSlot, SaveUserIndex);
+		UE_LOG(LogActionRPGModio, Display, TEXT("Deleted save slot '%s' (user %d): %hs"), *SaveSlot, SaveUserIndex,
+			   bDeleted ? "success" : "failed");
+	}
+	else
+	{
+		UE_LOG(LogActionRPGModio, Display, TEXT("No save slot '%s' to delete"), *SaveSlot);
+	}
+
+	// Reset the in-memory copy so nothing writes the old data back
 	HandleSaveGameLoaded(nullptr);
 }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2025 mod.io Pty Ltd. <https://mod.io>
+ *  Copyright (C) 2025-2026 mod.io Pty Ltd. <https://mod.io>
  *
  *  This file is part of the mod.io Action RPG demo project.
  *
@@ -13,13 +13,18 @@
 #include "Libraries/ModioPlatformHelpersLibrary.h"
 #include "Libraries/ModioSDKLibrary.h"
 #include "ModioHelpers.h"
-#include "ModioPlatformHelpers.h"
+#include "ModioOnlinePortalHelper.h"
 #include "ModioSettings.h"
 #include "ModioSubsystem.h"
 #include "ModioUISubsystem.h"
 #include "OnlineSubsystem.h"
+#include "SteamModioOnlinePortalHelper.h"
 #include "UGC/ModioUGCProvider.h"
 #include "UGC/UGCSubsystem.h"
+
+#if UE_SERVER
+	#include "ModioMultiplayerSubsystem.h"
+#endif
 
 #ifdef WITH_STEAM
 THIRD_PARTY_INCLUDES_START
@@ -133,6 +138,46 @@ UActionRPGModioSubsystem::UActionRPGModioSubsystem()
 		UE_LOG(LogActionRPGModio, Display, TEXT("Cache Storage Quota: %i"), *ModioSettings.OverrideCacheStorageQuotaMB);
 		HasOverriddenLaunchOptions = true;
 	}
+
+#if UE_SERVER
+	FString ServerToken;
+	FString ModDirectory;
+	FString ServerModsString;
+	TArray<FModioModID> ServerMods;
+	if (IsRunningDedicatedServer())
+	{
+		if (FParse::Value(FCommandLine::Get(), TEXT("servertoken="), ServerToken))
+		{
+			OverrideServerToken = ServerToken;
+			HasOverriddenLaunchOptions = true;
+		}
+		if (FParse::Value(FCommandLine::Get(), TEXT("servermoddir="), ModDirectory))
+		{
+			OverrideModDirectory = ModDirectory;
+			UE_LOG(LogActionRPGModio, Display, TEXT("Mod Directory: %s"), *OverrideModDirectory.GetValue());
+			HasOverriddenLaunchOptions = true;
+		}
+		if (FParse::Param(FCommandLine::Get(), TEXT("getmodsoninit=")))
+		{
+			bOverrideGetModsOnInit = true;
+			UE_LOG(LogActionRPGModio, Display, TEXT("Get Mods on Init: true"));
+			HasOverriddenLaunchOptions = true;
+		}
+		if (FParse::Value(FCommandLine::Get(), TEXT("servermods="), ServerModsString))
+		{
+			TArray<FString> ModStringList;
+			int32 ModCount = ServerModsString.ParseIntoArray(ModStringList, TEXT("|"), true);
+			for (const FString& ModStr : ModStringList)
+			{
+				UE_LOG(LogActionRPGModio, Display, TEXT("ModId %s passed to Init"), *ModStr);
+				ServerMods.Add(FModioModID(FCString::Atoi(*ModStr)));
+			}
+			UE_LOG(LogActionRPGModio, Display, TEXT("Mods passed to Init: %d"), ModCount);
+			OverrideServerMods = ServerMods;
+			HasOverriddenLaunchOptions = true;
+		}
+	}
+#endif
 }
 
 void UActionRPGModioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -143,20 +188,45 @@ void UActionRPGModioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Collection.InitializeDependency(UUGCSubsystem::StaticClass());
 	Collection.InitializeDependency(UModioUISubsystem::StaticClass());
 
+	if (!IsRunningDedicatedServer())
+	{
+		InitializeModioServices();
+	}
+}
+
+void UActionRPGModioSubsystem::InitializeModioServices()
+{
 	// Initialize the SDK
 	if (UModioSubsystem* ModioSubsystem = GEngine->GetEngineSubsystem<UModioSubsystem>())
 	{
+		const EModioPortal CurrentPortal = UModioPlatformHelpersLibrary::GetDefaultPortalForCurrentPlatform();
+		if (CurrentPortal == EModioPortal::Steam) 
+		{
+			ModioSubsystem->SetPortalInterface(NewObject<USteamModioOnlinePortalImplementation>(this));
+		}
+		else 
+		{
+			ModioSubsystem->SetPortalInterface(NewObject<UModioOnlinePortalImplementation>(this));
+		}
+		IModioPortalInterface::Execute_InitializePlatform(ModioSubsystem->GetPortalInterfaceObject());
+
 		UUGCSubsystem* UGCSubsystem = GEngine->GetEngineSubsystem<UUGCSubsystem>();
-		UGCSubsystem->SetFilePathSanitizationFn(UModioPlatformHelper::SanitizeFilePath);
 		// Set the language code for the plugin to use
 		const EModioLanguage CurrentLanguage = UModioSDKLibrary::GetLanguageCodeFromString(
 			FInternationalization::Get().GetCurrentLanguage()->GetTwoLetterISOLanguageName());
 
 		ModioSubsystem->SetLanguage(CurrentLanguage);
 
+#if UE_SERVER
+
+		UModioMultiplayerSubsystem* MPSubsystem = GEngine->GetEngineSubsystem<UModioMultiplayerSubsystem>();
+		MPSubsystem->InitializeServerAsync(
+			GetModioInitializeOptions(),
+#else
 		ModioSubsystem->InitializeAsync(
 			GetModioInitializeOptions(),
-			FOnErrorOnlyDelegateFast::CreateLambda([this, UGCSubsystem](FModioErrorCode ec) {
+#endif
+			FOnErrorOnlyDelegateFast::CreateLambda([this, UGCSubsystem, ModioSubsystem](FModioErrorCode ec) {
 				if (ec)
 				{
 					UE_LOG(LogActionRPGModio, Error, TEXT("Failed to initialize Mod.io SDK with error: %s"),
@@ -164,6 +234,24 @@ void UActionRPGModioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 				}
 				else
 				{
+#if UE_SERVER
+					UE_LOG(LogActionRPGModio, Display, TEXT("Modio Server Initialized"));
+					ServerModManagementEvent.BindUObject(this, &UActionRPGModioSubsystem::OnServerModManagementEvent);
+					ModioSubsystem->DisableModManagement();
+					ModioSubsystem->EnableModManagement(ServerModManagementEvent);
+					UModioMultiplayerSubsystem* MPSubsystem = GEngine->GetEngineSubsystem<UModioMultiplayerSubsystem>();
+					MPSubsystem->InstallOrUpdateServerModsAsync(
+						{}, FOnErrorOnlyDelegateFast::CreateLambda([this, ModioSubsystem](FModioErrorCode InstallEc) {
+							if (InstallEc)
+							{
+								UE_LOG(LogActionRPGModio, Error,
+									   TEXT("Failed to install or update Server Mods with error: %s"),
+									   *InstallEc.GetErrorMessage());
+							}
+							OnServerInit.ExecuteIfBound(InstallEc);
+						}));
+
+#endif
 					if (UGCSubsystem)
 					{
 						UGCSubsystem->SetUGCProvider(NewObject<UActionRPG_UGCProvider>(this));
@@ -290,14 +378,82 @@ FModioInitializeOptions UActionRPGModioSubsystem::OverrideInitializationOptions(
 	return DuplicateOptions;
 }
 
+#if UE_SERVER
+FModioServerInitializeOptions UActionRPGModioSubsystem::OverrideServerInitializationOptions(
+	const FModioServerInitializeOptions& Options) const
+{
+	if (!HasOverriddenLaunchOptions)
+	{
+		return Options;
+	}
+
+	FModioServerInitializeOptions DuplicateOptions {Options};
+	DuplicateOptions.BaseOptions = OverrideInitializationOptions(Options.BaseOptions);
+	if (OverrideServerToken.IsSet())
+	{
+		DuplicateOptions.Token = OverrideServerToken.GetValue();
+	}
+	else
+	{
+		UE_LOG(LogActionRPGModio, Error,
+			   TEXT("No server token set when initializing modio server. This means nothing will work and init will "
+					"fail. Please ensure you are passing 'servertoken=[YourTokenHere]' when launching."));
+	}
+	if (OverrideModDirectory.IsSet())
+	{
+		DuplicateOptions.ModsDirectory = OverrideModDirectory.GetValue();
+	}
+	else
+	{
+		UE_LOG(LogActionRPGModio, Error,
+			   TEXT("No mods directory set when initializing modio server. Defaulting to 'C:\\ModioServerMods'. Pass "
+					"'servermoddir=\\path\\to\\mods' when launching to override"));
+		DuplicateOptions.ModsDirectory = "C:\\ModioServerMods";
+	}
+	if (OverrideServerMods.IsSet())
+	{
+		DuplicateOptions.Mods = OverrideServerMods.GetValue();
+	}
+	else
+	{
+		UE_LOG(LogActionRPGModio, Warning,
+			   TEXT("No mods passed to server. Not a problem, but the server will have no mods. Pass "
+					"'servermods=11111,22222,33333' to pass mods for the server to install."));
+	}
+
+	return DuplicateOptions;
+}
+
+FModioServerInitializeOptions UActionRPGModioSubsystem::GetModioInitializeOptions() const
+#else
 FModioInitializeOptions UActionRPGModioSubsystem::GetModioInitializeOptions() const
+#endif
 {
 	FModioInitializeOptions Options =
 		UModioSDKLibrary::GetProjectInitializeOptionsForSessionId(FPlatformProcess::UserName());
 
 	Options.PortalInUse = UModioPlatformHelpersLibrary::GetDefaultPortalForCurrentPlatform();
-	Options.ExtendedInitializationParameters.Append(UModioPlatformHelper::GetExtendedInitializationParams());
+
+	UModioSubsystem* ModioSubsystem = GEngine->GetEngineSubsystem<UModioSubsystem>();
+	if (ModioSubsystem)
+	{
+		Options.ExtendedInitializationParameters.Append(
+			IModioPortalInterface::Execute_GetExtendedInitializationParams(ModioSubsystem->GetPortalInterfaceObject()));
+	}
 	Options = OverrideInitializationOptions(Options);
 
+	#if UE_SERVER
+	FModioServerInitializeOptions ServerOptions;
+	ServerOptions.BaseOptions = Options;
+	ServerOptions = OverrideServerInitializationOptions(ServerOptions);
+
+	return ServerOptions;
+#else
 	return Options;
+#endif
+}
+
+void UActionRPGModioSubsystem::OnServerModManagementEvent(FModioModManagementEvent ModEvent)
+{
+	UE_LOG(LogActionRPGModio, Display, TEXT("Server Mod Managment event for mod %s: %s"), *ModEvent.ID.ToString(),*ModEvent.Status.GetErrorMessage());
 }

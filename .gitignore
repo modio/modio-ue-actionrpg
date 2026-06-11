@@ -63,6 +63,10 @@ Plugins/*/Binaries/*
 Mods/*
 !Mods/*.zip
 
+# Ignore side loadable cooked Mods, but track the archived files
+Modio/*
+!Modio/*.zip
+
 # Whitelist PakBlacklist-<BuildConfiguration>.txt files
 !Build/*/
 Build/*/**
@@ -146,3 +150,4 @@ Plugins/Sentry/Intermediate/*
 /Source/ActionRPGClient.Target.cs
 
 /ArchivedBuilds/*
+/ModioTestFixtures/*

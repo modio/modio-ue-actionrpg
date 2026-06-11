@@ -11,7 +11,7 @@ public class ActionRPGServerTarget : TargetRules
 
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
-		ExtraModuleNames.AddRange( new string[] { "ActionRPG", "ActionRPGModio", "OSS_Provider" } );
+		ExtraModuleNames.AddRange( new string[] { "ActionRPG", "ActionRPGModio", "OSS_Provider", "ModioPortalHelpers" } );
 
 		//ProjectDefinitions.Add("MODIO_DEVELOPMENT_MODE");
 	}
